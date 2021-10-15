@@ -1,14 +1,21 @@
+// Import der nötigen Bibliotheken
+
 const fs = require('fs');
 const { exec, spawnSync } = require('child_process');
 const queue = require('queue');
 const PubSubService = require('./services');
 
+// Definition der nötigen Konstanten
+
 const configFile = fs.readFileSync('./config.json');
 const config = JSON.parse(configFile);
-const initImageFilename = 'init.ppm';
 const { logo, ledMatrix } = config;
 
+// Definition der Parameter, die von der rpi-rgb-led-matrix benutzt werden. Definieren wie die Matrizen angesprochen werden und wie diese Aufgebaut sind.
+
 const ledOptions = `--led-rows=32 --led-cols=32 --led-chain=4 --led-gpio-mapping=adafruit-hat --led-pixel-mapper U-mapper --led-slowdown-gpio=2 --led-pwm-bits=11 --led-brightness=84`;
+
+// Initialisiert die Queue
 
 let q = queue();
 q.autostart = true;
@@ -16,13 +23,22 @@ q.concurrency = 1;
 
 let repeatMessage;
 
+// Startet das Display
+
 run().then(() => {
   console.log('Projext-pxl-client started!');
 });
 
+// Hauptfunktion
+
 async function run() {
   
+  // Definiert Befehl, um das Logo anzuzeigen
+
   const cmdDisplayLogo = `sudo ${ledMatrix.path}/utils/led-image-viewer ${logo} -w2 ./${logo} -w2 -C ${ledOptions}`;
+
+  // Zeigt beim Start das Logo an
+
   q.push(() =>
     execCommand({
       cmd: cmdDisplayLogo,
@@ -30,16 +46,25 @@ async function run() {
     })
   );
 
+  // Initialisiert den Pub/Sub-Service
+
   const pubsubService = new PubSubService(config);
 
   pubsubService.subscribe(sendMessage, sendCommand);
+  
+  // Started die Queue
 
   q.on('success', (message, job) => {
     console.log('job finished processing', message);
+
+    // Zeigt Uhrzeit an, wenn kein Ereignis ausgeführt wird
+
     if (!message) {
       displayTime(ledMatrix);
       return;
     }
+
+    // Definiert die nötigen Konstante, falls das Ereignis wiederholt werden soll
 
     const { repeat } = message.userMetadata;
     if (repeat) {
@@ -49,12 +74,16 @@ async function run() {
     loopMessage();
   });
 
+  // Schreibt bei Fehler Error-Nachricht in die Konsole
+
   q.on('error', (error, job) => {
     console.error('job failed to execute', error);
   });
 
   q.start((err) => console.log('queue ended', err));
 }
+
+// Definiert bei welchem Befehlt die Queue gestartet, gestopt, abgebrochen oder gelöscht wird
 
 function sendCommand(command) {
   console.log('command', command);
@@ -74,12 +103,13 @@ function sendCommand(command) {
   }
 }
 
+// Funktion, um die Nachricht an die Darstellungs-Funktion zu schicken
+
 function sendMessage(message) {
   q[message.userMetadata.priority ? 'unshift' : 'push'](() => {
     return new Promise((resolve) => {
       sendToDisplayPanel({
         message,
-        imageFile: `${message.userMetadata.name}.ppm`,
         ledMatrix,
       })
         .then((res) => {
@@ -92,6 +122,8 @@ function sendMessage(message) {
   });
 }
 
+// Kontrolliert ob das Ereignis wiederholt werden soll
+
 function loopMessage() {
   if (q.length !== 0) {
     return;
@@ -102,7 +134,6 @@ function loopMessage() {
       return new Promise((resolve, reject) => {
         sendToDisplayPanel({
           message: repeatMessage,
-          imageFile: `${repeatMessage.userMetadata.name}.ppm`,
           ledMatrix,
         })
           .then((res) => {
@@ -114,9 +145,11 @@ function loopMessage() {
       });
     });
   } else {
-    displayTime(ledMatrix);
+    displayTime(ledMatrix); // falls nicht und keine weitere Ereignisse in der Queue stehen, wird die Zeit angezeigt
   }
 }
+
+// Führt den definierten Befehl aus, der etwas auf dem Display anzeigen soll
 
 function execCommand({ cmd, message, ledMatrix }) {
   killProcess(`${ledMatrix.path}/examples-api-use/clock`);
@@ -136,7 +169,11 @@ function execCommand({ cmd, message, ledMatrix }) {
   });
 }
 
-async function sendToDisplayPanel({ message, imageFile, ledMatrix }) {
+// Funktion, die den richtigen Befehl definiert
+
+async function sendToDisplayPanel({ message,  ledMatrix }) {
+
+  // Variablen, die aus der Nachricht entnommen werden können
 
   var { duration } = message.userMetadata;
   var { name } = message.userMetadata;
@@ -147,30 +184,27 @@ async function sendToDisplayPanel({ message, imageFile, ledMatrix }) {
   var { pictureFile } = message.userMetadata;
   var { type } = message.userMetadata;
 
-  const cmdKillDemo= `sudo pkill demo`;
+  // Kopiert die Bild- oder Animationsdateien
 
   const cmdSyncPictures= `wget http://pxl.cedrichoechli.com/service/uploads/pictures/${pictureFile} -P assets/pictures/`;
   const cmdSyncAnimations= `wget http://pxl.cedrichoechli.com/service/uploads/animations/${pictureFile} -P assets/animations/`;
 
+
+  // Befehl um eine Animation darzustellen
+
   const cmdDisplayAnimation = `sudo ${ledMatrix.path}/utils/led-image-viewer -t${duration} assets/animations/${pictureFile} -C ${ledOptions}`;
+
+  // Befehl um ein Bild darzustellen
+
   const cmdDisplayPicture = `sudo ${ledMatrix.path}/utils/led-image-viewer -w${duration} assets/pictures/${pictureFile} -w${duration} assets/pictures/${pictureFile} -C ${ledOptions}`;
-  const cmdDisplayTextImage = `sudo ${ledMatrix.path}/examples-api-use/demo -m 25 -D 1 ./${imageFile} ${ledOptions}`;
+
+  // Befehl um einen Text darzustellen
+
   const cmdDisplayMessage = `sudo ${ledMatrix.path}/utils/text-scroller -f ${ledMatrix.path}/fonts/10x20.bdf -s ${speed} -l ${duration} -y 22 ${message.message} -C ${red},${green},${blue} ${ledOptions}`;
   
-  if (name == "weather") {
+  //Kontrolliert welcher Befehl ausgeführt werden soll
 
-    generateTextImage({
-      text: message.message,
-      filename: imageFile,
-      ledRows: ledMatrix.options.ledRows,
-    });
-  
-    return await execCommand({
-      cmd: cmdDisplayTextImage,
-      message,
-      ledMatrix,
-    });
-  } if (name == "picture") {
+  if (name == "picture") {
 
     return await execCommand({
       cmd: cmdDisplayPicture,
@@ -215,12 +249,16 @@ async function sendToDisplayPanel({ message, imageFile, ledMatrix }) {
   }
 }
 
+// Funktion um die Zeit anzuzeigen
+
 function displayTime(ledMatrix) {
   const cmdDisplayClock = `sudo ${ledMatrix.path}/examples-api-use/clock -f ${ledMatrix.path}/fonts/8x13.bdf -d "%H:%M:%S" -y 25 -C 255,255,255 ${ledOptions}`;
   const child = exec(cmdDisplayClock);
   child.stdout.pipe(process.stdout);
   child.stderr.pipe(process.stderr);
 }
+
+// Funktion um einen Befehl zu stoppen
 
 function killProcess(grepPattern) {
   const cmdKillProcess = `sudo kill $(ps aux | grep '${grepPattern}' | awk '{print $2}')`;
