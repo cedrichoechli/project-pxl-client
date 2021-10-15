@@ -1,0 +1,16 @@
+{
+  "name": "project-pxl-client",
+  "version": "1.0.0",
+  "description": "The client side of the Project-pxl. Based on the cactuspi-client by Danny Lum under the ISC license.",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "Cedric Hoechli",
+  "license": "ISC",
+  "dependencies": {
+    "pubnub": "^4.27.3",
+    "queue": "^6.0.1"
+  }
+}

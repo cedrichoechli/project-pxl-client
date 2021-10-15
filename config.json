@@ -1,0 +1,18 @@
+{
+  "logo": "./assets/logopxl.ppm",
+  "pubsubType": "pubnub",
+  "pubnub": {
+    "subscribeKey": "",
+    "secretKey": "",
+    "channels": ["pxl"]
+  },
+  "ledMatrix": {
+    "path": "/home/pi/Project-pxl-client/rpi-rgb-led-matrix",
+    "options": {
+      "ledGpioMapping": "adafruit-hat",
+      "ledNoHardwarePulse": true,
+      "ledRows": 64,
+      "ledChain": 4
+    }
+  }
+}
