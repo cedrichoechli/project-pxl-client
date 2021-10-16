@@ -85,7 +85,16 @@ async function run() {
 
 // Definiert bei welchem Befehlt die Queue gestartet, gestopt, abgebrochen oder gelöscht wird
 
+// Ausserdem wir der Kill-Command definiert, da dieser immer Priorität hat
+
 function sendCommand(command) {
+
+  const cmdKill = `sudo pkill led-image-viewe`;
+
+  const ledMatrix = config;
+
+  const message = "kill";
+
   console.log('command', command);
   switch (command) {
     case 'start':
@@ -100,6 +109,12 @@ function sendCommand(command) {
     case 'clear':
       q.splice(0);
       break;
+    case 'kill':
+      execCommand({
+        cmd: cmdKill,
+        message,
+        ledMatrix,
+      });
   }
 }
 
@@ -186,9 +201,13 @@ async function sendToDisplayPanel({ message,  ledMatrix }) {
 
   // Kopiert die Bild- oder Animationsdateien
 
-  const cmdSyncPictures= `wget http://pxl.cedrichoechli.com/service/uploads/pictures/${pictureFile} -P assets/pictures/`;
-  const cmdSyncAnimations= `wget http://pxl.cedrichoechli.com/service/uploads/animations/${pictureFile} -P assets/animations/`;
+  const cmdSyncPictures = `wget http://pxl.cedrichoechli.com/service/uploads/pictures/${pictureFile} -P assets/pictures/`;
+  const cmdSyncAnimations = `wget http://pxl.cedrichoechli.com/service/uploads/animations/${pictureFile} -P assets/animations/`;
 
+  // Befehl um Bilder oder Animationen in einer Schlaufe abzuspielen
+
+  const cmdLoopPictures = `sudo ${ledMatrix.path}/utils/led-image-viewer -f -w${duration} assets/pictures/*.jpg assets/pictures/*.jpeg assets/pictures/*.png -C ${ledOptions}`;
+  const cmdLoopAnimations = `sudo ${ledMatrix.path}/utils/led-image-viewer -f -t${duration} assets/animations/*.gif -C ${ledOptions}`;
 
   // Befehl um eine Animation darzustellen
 
@@ -219,6 +238,26 @@ async function sendToDisplayPanel({ message,  ledMatrix }) {
       message,
       ledMatrix,
     });
+
+  } if (name == "loop") {
+
+    if (type == "picture") {
+
+      return await execCommand({
+        cmd: cmdLoopPictures,
+        message,
+        ledMatrix,
+      });
+
+    } else {
+
+      return await execCommand({
+        cmd: cmdLoopAnimations,
+        message,
+        ledMatrix,
+      });
+
+    }
 
   } if (name == "sync") {
 
